@@ -9,11 +9,7 @@
     var colorInput = document.getElementById('id_color');
     if (!latInput || !lngInput) return;
 
-    // The map is the source of truth now — stop hand-typed coordinates.
-    latInput.setAttribute('readonly', 'readonly');
-    lngInput.setAttribute('readonly', 'readonly');
-    latInput.style.opacity = '0.7';
-    lngInput.style.opacity = '0.7';
+    // Both ways work: click/drag the map, or type coordinates directly.
 
     var FALLBACK = [42.4531, 59.6103]; // Nukus
     var hasInitial = latInput.value && lngInput.value;
@@ -54,6 +50,22 @@
 
     map.on('click', function (e) { setPoint(e.latlng); });
     marker.on('drag', function (e) { setPoint(e.target.getLatLng()); });
+
+    // Typing coordinates directly is also allowed — moves the pin to
+    // match, without rewriting whatever the person is in the middle of
+    // typing.
+    function moveMarkerFromTypedFields() {
+      var lat = parseFloat(latInput.value);
+      var lng = parseFloat(lngInput.value);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+      var latlng = L.latLng(lat, lng);
+      marker.setLatLng(latlng);
+      circle.setLatLng(latlng);
+    }
+    latInput.addEventListener('input', moveMarkerFromTypedFields);
+    lngInput.addEventListener('input', moveMarkerFromTypedFields);
+    latInput.addEventListener('change', function () { moveMarkerFromTypedFields(); map.panTo(marker.getLatLng()); });
+    lngInput.addEventListener('change', function () { moveMarkerFromTypedFields(); map.panTo(marker.getLatLng()); });
 
     if (radiusInput) {
       radiusInput.addEventListener('input', function () {

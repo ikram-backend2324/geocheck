@@ -31,8 +31,8 @@ class ZoneForm(forms.ModelForm):
         widgets = {
             "name": forms.TextInput(attrs={"class": "field-input", "placeholder": "e.g. Main Campus"}),
             "description": forms.TextInput(attrs={"class": "field-input", "placeholder": "Optional note"}),
-            "center_lat": forms.NumberInput(attrs={"class": "field-input", "step": "any", "readonly": "readonly"}),
-            "center_lng": forms.NumberInput(attrs={"class": "field-input", "step": "any", "readonly": "readonly"}),
+            "center_lat": forms.NumberInput(attrs={"class": "field-input", "step": "any", "placeholder": "e.g. 42.453100"}),
+            "center_lng": forms.NumberInput(attrs={"class": "field-input", "step": "any", "placeholder": "e.g. 59.610300"}),
             "radius_m": forms.NumberInput(attrs={"class": "field-input", "min": 20, "max": 20000}),
             "color": forms.TextInput(attrs={"class": "field-input color-input", "type": "color"}),
             "is_active": forms.CheckboxInput(attrs={"class": "field-checkbox"}),

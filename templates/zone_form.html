@@ -5,7 +5,7 @@
     <div>
       <span class="eyebrow">{% if mode == "edit" %}Edit zone{% else %}New zone{% endif %}</span>
       <h1>{% if mode == "edit" %}{{ zone.name }}{% else %}Draw a geofence{% endif %}</h1>
-      <p class="sub">Click anywhere on the map to drop the center point, then drag to fine-tune.</p>
+      <p class="sub">Click anywhere on the map to drop the center point and drag to fine-tune — or type the latitude/longitude directly below, your choice.</p>
     </div>
     <a href="{% url 'zone_list' %}" class="btn btn-ghost btn-sm">← All zones</a>
   </div>
@@ -94,6 +94,21 @@
 
   map.on('click', function (e) { setPoint(e.latlng); });
   marker.on('drag', function (e) { setPoint(e.target.getLatLng()); });
+
+  // Typing coordinates directly is also allowed — moves the pin to match,
+  // without rewriting whatever the person is in the middle of typing.
+  function moveMarkerFromTypedFields() {
+    var lat = parseFloat(latInput.value);
+    var lng = parseFloat(lngInput.value);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+    var latlng = L.latLng(lat, lng);
+    marker.setLatLng(latlng);
+    circle.setLatLng(latlng);
+  }
+  latInput.addEventListener('input', moveMarkerFromTypedFields);
+  lngInput.addEventListener('input', moveMarkerFromTypedFields);
+  latInput.addEventListener('change', function () { moveMarkerFromTypedFields(); map.panTo(marker.getLatLng()); });
+  lngInput.addEventListener('change', function () { moveMarkerFromTypedFields(); map.panTo(marker.getLatLng()); });
 
   slider.addEventListener('input', function () {
     radiusInput.value = slider.value;
