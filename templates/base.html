@@ -1,0 +1,56 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Perimetr — Geofenced check-ins{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body class="scope-bg">
+
+<nav class="topnav">
+  <div class="wrap">
+    <a href="{% url 'landing' %}" class="brand"><span class="dot"></span>PERIMETR<small>geofence check-in</small></a>
+    <div class="navlinks">
+      {% if user.is_authenticated %}
+        <span class="who">{{ user.username }} · {% if user.is_staff %}admin{% else %}user{% endif %}</span>
+        {% if user.is_staff %}
+          <a href="{% url 'admin_dashboard' %}" class="btn btn-ghost btn-sm">Control room</a>
+        {% else %}
+          <a href="{% url 'user_dashboard' %}" class="btn btn-ghost btn-sm">My map</a>
+        {% endif %}
+        <form action="{% url 'logout' %}" method="post" style="display:inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Log in</a>
+        <a href="{% url 'register' %}" class="btn btn-signal btn-sm">Get started</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+{% if messages %}
+  <div class="wrap" style="padding-top:18px;">
+    {% for message in messages %}
+      <div class="alert-box">{{ message }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% block content %}{% endblock %}
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Perimetr · built with Django, SQLite &amp; Leaflet/OpenStreetMap</span>
+    <span class="mono">No paid APIs · no trial limits</span>
+  </div>
+</footer>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

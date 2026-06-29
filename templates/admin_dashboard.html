@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="wrap app-shell">
+
+  <div class="app-head">
+    <div>
+      <span class="eyebrow">Control room</span>
+      <h1>Who's checking in</h1>
+      <p class="sub">{{ zones.count }} zone{{ zones.count|pluralize }} configured · live feed refreshes automatically.</p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span id="pollPill" class="status-pill live"><span class="blip"></span>Polling live</span>
+      <a href="{% url 'zone_list' %}" class="btn btn-ghost btn-sm">Manage zones</a>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel" style="padding:14px;">
+      <div id="adminMap"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel panel-pad">
+        <div class="section-title">Zones</div>
+        {% for z in zones %}
+          <div class="zone-chip">
+            <span class="swatch" style="background:{{ z.color }}{% if not z.is_active %};opacity:.3{% endif %}"></span>
+            <span class="name">{{ z.name }}{% if not z.is_active %} (off){% endif %}</span>
+            <span class="radius">{{ z.radius_m }} m</span>
+          </div>
+        {% empty %}
+          <div class="empty-note">No zones yet. <a href="{% url 'zone_create' %}">Draw your first one →</a></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-pad" style="margin-top:22px;">
+    <div class="toolbar" style="justify-content:space-between; margin-bottom:14px;">
+      <div class="section-title" style="margin-bottom:0;">Live check-in feed</div>
+      <span id="feedCount" class="mono" style="color:var(--text-mute); font-size:12.5px;"></span>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr><th>User</th><th>Zone</th><th>Coordinates</th><th>Time</th></tr>
+      </thead>
+      <tbody id="entriesBody">
+        {% for e in entries %}
+          <tr data-id="{{ e.id }}">
+            <td>{{ e.user.username }}</td>
+            <td>{{ e.zone.name }}</td>
+            <td class="mono">{{ e.lat|floatformat:5 }}, {{ e.lng|floatformat:5 }}</td>
+            <td class="mono">{{ e.entered_at|date:"d M, H:i:s" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="entriesEmpty" class="empty-note" {% if entries %}style="display:none;"{% endif %}>No check-ins logged yet.</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  var FALLBACK = [42.4531, 59.6103];
+  var zones = [
+    {% for z in zones %}{ id: {{ z.id }}, name: "{{ z.name|escapejs }}", lat: {{ z.center_lat }}, lng: {{ z.center_lng }}, radius_m: {{ z.radius_m }}, color: "{{ z.color }}", active: {{ z.is_active|yesno:"true,false" }} },{% endfor %}
+  ];
+
+  var startCenter = zones.length ? [zones[0].lat, zones[0].lng] : FALLBACK;
+  var map = L.map('adminMap').setView(startCenter, zones.length ? 13 : 11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  }).addTo(map);
+
+  zones.forEach(function (z) {
+    L.circle([z.lat, z.lng], {
+      radius: z.radius_m, color: z.color, weight: 2, fillColor: z.color,
+      fillOpacity: z.active ? 0.12 : 0.03, opacity: z.active ? 1 : 0.3
+    }).addTo(map).bindPopup('<b>' + z.name + '</b><br>' + z.radius_m + ' m');
+  });
+
+  var entryLayer = L.layerGroup().addTo(map);
+  var knownIds = new Set();
+  document.querySelectorAll('#entriesBody tr').forEach(function (tr) { knownIds.add(tr.dataset.id); });
+
+  function fmtTime(s) { return s; }
+
+  function renderMarkers(entries) {
+    entryLayer.clearLayers();
+    entries.slice(0, 60).forEach(function (e) {
+      L.circleMarker([e.lat, e.lng], {
+        radius: 5, color: '#ff8a4c', fillColor: '#ff8a4c', fillOpacity: 0.85, weight: 1
+      }).addTo(entryLayer).bindPopup('<b>' + e.username + '</b><br>' + e.zone + '<br>' + e.entered_at);
+    });
+  }
+
+  function poll() {
+    fetch("{% url 'api_recent_entries' %}").then(function (r) { return r.json(); }).then(function (data) {
+      var tbody = document.getElementById('entriesBody');
+      var empty = document.getElementById('entriesEmpty');
+      document.getElementById('feedCount').textContent = data.count + ' total check-in' + (data.count === 1 ? '' : 's');
+
+      if (data.entries.length) empty.style.display = 'none';
+      else empty.style.display = 'block';
+
+      tbody.innerHTML = '';
+      data.entries.forEach(function (e) {
+        var tr = document.createElement('tr');
+        var isNew = !knownIds.has(String(e.id));
+        if (isNew) tr.className = 'fresh';
+        tr.dataset.id = e.id;
+        tr.innerHTML = '<td>' + e.username + '</td><td>' + e.zone + '</td>' +
+          '<td class="mono">' + e.lat.toFixed(5) + ', ' + e.lng.toFixed(5) + '</td>' +
+          '<td class="mono">' + e.entered_at + '</td>';
+        tbody.appendChild(tr);
+        knownIds.add(String(e.id));
+      });
+
+      renderMarkers(data.entries);
+    }).catch(function () {
+      var pill = document.getElementById('pollPill');
+      pill.className = 'status-pill warn'; pill.innerHTML = '<span class="blip"></span>Connection lost';
+    });
+  }
+
+  poll();
+  setInterval(poll, 5000);
+})();
+</script>
+{% endblock %}

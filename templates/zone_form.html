@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="wrap app-shell">
+  <div class="app-head">
+    <div>
+      <span class="eyebrow">{% if mode == "edit" %}Edit zone{% else %}New zone{% endif %}</span>
+      <h1>{% if mode == "edit" %}{{ zone.name }}{% else %}Draw a geofence{% endif %}</h1>
+      <p class="sub">Click anywhere on the map to drop the center point, then drag to fine-tune.</p>
+    </div>
+    <a href="{% url 'zone_list' %}" class="btn btn-ghost btn-sm">← All zones</a>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel" style="padding:14px;">
+      <div id="pickMap" style="height:460px; border-radius:14px; border:1px solid var(--line);"></div>
+    </div>
+
+    <div class="panel panel-pad">
+      <form method="post" id="zoneForm">
+        {% csrf_token %}
+        <div class="field">
+          <label>Name</label>
+          {{ form.name }}
+        </div>
+        <div class="field">
+          <label>Description</label>
+          {{ form.description }}
+        </div>
+        <div class="field">
+          <label>Latitude</label>
+          {{ form.center_lat }}
+        </div>
+        <div class="field">
+          <label>Longitude</label>
+          {{ form.center_lng }}
+        </div>
+        <div class="field">
+          <label>Radius (meters) — <span id="radiusVal">{{ form.radius_m.value|default:150 }}</span> m</label>
+          <input type="range" id="radiusSlider" min="20" max="3000" step="10" value="{{ form.radius_m.value|default:150 }}" style="width:100%;">
+          {{ form.radius_m }}
+        </div>
+        <div class="field">
+          <label>Color</label>
+          {{ form.color }}
+        </div>
+        <div class="field" style="display:flex; align-items:center;">
+          {{ form.is_active }}
+          <label style="margin:0;">Active (counts toward check-ins)</label>
+        </div>
+        <button type="submit" class="btn btn-signal btn-block">{% if mode == "edit" %}Save changes{% else %}Create zone{% endif %}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  var latInput = document.getElementById('{{ form.center_lat.id_for_label }}');
+  var lngInput = document.getElementById('{{ form.center_lng.id_for_label }}');
+  var radiusInput = document.getElementById('{{ form.radius_m.id_for_label }}');
+  var slider = document.getElementById('radiusSlider');
+  var radiusVal = document.getElementById('radiusVal');
+  var colorInput = document.getElementById('{{ form.color.id_for_label }}');
+
+  var hasInitial = latInput.value && lngInput.value;
+  var start = hasInitial ? [parseFloat(latInput.value), parseFloat(lngInput.value)] : [42.4531, 59.6103];
+
+  var map = L.map('pickMap').setView(start, hasInitial ? 14 : 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  }).addTo(map);
+
+  var marker = L.marker(start, { draggable: true }).addTo(map);
+  var circle = L.circle(start, {
+    radius: parseInt(radiusInput.value || 150, 10),
+    color: colorInput.value || '#4cf0b0', fillColor: colorInput.value || '#4cf0b0', fillOpacity: 0.15
+  }).addTo(map);
+
+  function setPoint(latlng) {
+    latInput.value = latlng.lat.toFixed(6);
+    lngInput.value = latlng.lng.toFixed(6);
+    marker.setLatLng(latlng);
+    circle.setLatLng(latlng);
+  }
+
+  if (!hasInitial) setPoint(L.latLng(start[0], start[1]));
+
+  map.on('click', function (e) { setPoint(e.latlng); });
+  marker.on('drag', function (e) { setPoint(e.target.getLatLng()); });
+
+  slider.addEventListener('input', function () {
+    radiusInput.value = slider.value;
+    radiusVal.textContent = slider.value;
+    circle.setRadius(parseInt(slider.value, 10));
+  });
+  radiusInput.addEventListener('change', function () {
+    slider.value = radiusInput.value;
+    radiusVal.textContent = radiusInput.value;
+    circle.setRadius(parseInt(radiusInput.value, 10));
+  });
+  colorInput.addEventListener('input', function () {
+    circle.setStyle({ color: colorInput.value, fillColor: colorInput.value });
+  });
+})();
+</script>
+{% endblock %}

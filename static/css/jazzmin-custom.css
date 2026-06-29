@@ -1,0 +1,53 @@
+/* Light brand polish on top of the Jazzmin "darkly" theme so /admin/
+   reads as part of Perimetr rather than a generic admin skin. */
+
+:root {
+  --perimetr-signal: #4cf0b0;
+  --perimetr-alert: #ff8a4c;
+}
+
+.main-sidebar .brand-link {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.brand-link .brand-text {
+  color: var(--perimetr-signal) !important;
+}
+
+a, .nav-link.active, .btn-link {
+  color: var(--perimetr-signal);
+}
+
+.btn-success, .badge-success {
+  background-color: var(--perimetr-signal) !important;
+  border-color: var(--perimetr-signal) !important;
+  color: #06140f !important;
+}
+
+.btn-success:hover {
+  filter: brightness(1.08);
+}
+
+.small-box.bg-success, .callout.callout-success, .border-success {
+  border-color: var(--perimetr-signal) !important;
+}
+
+.content-wrapper, .main-header, .main-sidebar {
+  background-color: #0A0F1C !important;
+}
+
+.card {
+  background-color: #111A2E;
+  border: 1px solid #243352;
+}
+
+.card-header {
+  background-color: #16213D;
+  border-bottom: 1px solid #243352;
+}
+
+::selection {
+  background: rgba(76, 240, 176, 0.35);
+}

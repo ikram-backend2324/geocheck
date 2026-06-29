@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="wrap app-shell">
+  <div class="app-head">
+    <div>
+      <span class="eyebrow">Control room</span>
+      <h1>Zones</h1>
+      <p class="sub">Draw the areas that count as a check-in.</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <a href="{% url 'admin_dashboard' %}" class="btn btn-ghost btn-sm">← Back to feed</a>
+      <a href="{% url 'zone_create' %}" class="btn btn-signal btn-sm">+ New zone</a>
+    </div>
+  </div>
+
+  <div class="zone-card-grid">
+    {% for z in zones %}
+      <div class="panel zone-card">
+        <div class="top">
+          <div>
+            <h3>{{ z.name }}</h3>
+            <div class="meta-row">{{ z.radius_m }} m radius</div>
+            <div class="meta-row">{{ z.entries.count }} check-in{{ z.entries.count|pluralize }}</div>
+            <div class="meta-row">{% if z.is_active %}<span style="color:var(--signal)">active</span>{% else %}<span style="color:var(--text-mute)">disabled</span>{% endif %}</div>
+          </div>
+          <span class="swatch-lg" style="background:{{ z.color }}"></span>
+        </div>
+        <div class="actions">
+          <a href="{% url 'zone_edit' z.id %}" class="btn btn-ghost btn-sm">Edit</a>
+          <form action="{% url 'zone_delete' z.id %}" method="post" onsubmit="return confirm('Delete {{ z.name }}? This also removes its check-in history.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--alert); border-color:var(--alert);">Delete</button>
+          </form>
+        </div>
+      </div>
+    {% empty %}
+      <div class="panel panel-pad" style="grid-column:1/-1;">
+        <p style="margin:0; color:var(--text-mute);">No zones yet. <a href="{% url 'zone_create' %}">Draw your first geofence →</a></p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-copy">
+      <span class="eyebrow">Live geofence network</span>
+      <h1>Know the exact moment<br>someone <span class="accent">crosses the line.</span></h1>
+      <p class="lede">Perimetr watches GPS right in the browser — no app install. The instant a phone enters a zone you've drawn on the map, your control room logs the username and the timestamp.</p>
+      <div class="hero-cta">
+        <a href="{% url 'register' %}" class="btn btn-signal">Get started free</a>
+        <a href="{% url 'login' %}" class="btn btn-ghost">Log in</a>
+      </div>
+      <div class="hero-stats">
+        <div><b>$0</b><span>To run this</span></div>
+        <div><b>~3s</b><span>GPS poll rate</span></div>
+        <div><b>∞</b><span>Zones you can draw</span></div>
+      </div>
+    </div>
+    <div class="hero-stage">
+      <canvas id="sceneCanvas"></canvas>
+      <span class="caption">geofence · live signal</span>
+    </div>
+  </div>
+</section>
+
+<section class="stages">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">How a check-in happens</span>
+      <h2 style="font-size:32px;margin-top:10px;">Three signal stages, start to finish.</h2>
+    </div>
+    <div class="stage-grid">
+      <div class="stage-card">
+        <span class="stage-tag">01 · Arm</span>
+        <h3>Turn on location</h3>
+        <p>The user opens Perimetr and grants GPS access once. Nothing is sent anywhere until they actually move toward a zone.</p>
+      </div>
+      <div class="stage-card">
+        <span class="stage-tag">02 · Cross</span>
+        <h3>Enter the perimeter</h3>
+        <p>The moment their coordinates fall inside a zone you've drawn, the server re-checks the math itself — so it can't be spoofed from the browser.</p>
+      </div>
+      <div class="stage-card">
+        <span class="stage-tag">03 · Ping</span>
+        <h3>Control room is notified</h3>
+        <p>Username and exact timestamp land in the live feed within seconds — no page refresh, no polling app, nothing to install.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="schematic">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">The boundary, in 3D</span>
+      <h2 style="font-size:30px;margin-top:10px;">A geofence is just a dome around a point.</h2>
+      <p style="max-width:440px;color:var(--text-mute);">Each zone is a center point and a radius. Anything that crosses under the dome counts as "inside" — and triggers a signal up to the control room.</p>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--signal)"></span>Zone boundary</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--alert)"></span>Approaching</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--signal)"></span>Checked in</span>
+      </div>
+    </div>
+    <div class="schematic-stage">
+      <canvas id="domeCanvas"></canvas>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="{% static 'js/hero-scene.js' %}"></script>
+<script src="{% static 'js/dome-scene.js' %}"></script>
+{% endblock %}

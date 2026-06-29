@@ -1,0 +1,26 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block form_top %}
+  {{ block.super }}
+  <div class="zone-map-picker" style="margin: 0 0 26px 0; padding: 16px; background: #111A2E; border: 1px solid #243352; border-radius: 12px;">
+    <p style="color:#ECF1FB; font-weight:600; margin: 0 0 4px;">Pick the zone on the map</p>
+    <p style="color:#7C8AAC; font-size:12.5px; margin: 0 0 12px;">
+      Click anywhere to drop the center point, drag the pin to fine-tune.
+      The circle updates live as you change the radius field below — no
+      coordinates to type by hand.
+    </p>
+    <div id="adminZoneMap" style="height:420px; border-radius:10px; border:1px solid #243352;"></div>
+  </div>
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+  {{ block.super }}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{% static 'js/admin-zone-map.js' %}"></script>
+{% endblock %}

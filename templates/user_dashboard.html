@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="wrap app-shell">
+
+  <div class="app-head">
+    <div>
+      <span class="eyebrow">Your position</span>
+      <h1>Live map</h1>
+      <p class="sub">Turn on location and walk toward a zone — your check-in is logged automatically.</p>
+    </div>
+    <span id="gpsPill" class="status-pill"><span class="blip"></span>Location off</span>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel" style="padding:14px;">
+      <div id="map"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel panel-pad gps-card">
+        <div id="gpsOrb" class="gps-orb"><div class="core"></div></div>
+        <button id="gpsToggle" class="btn btn-signal btn-block">Enable GPS</button>
+        <div id="gpsReadout" class="gps-readout">Location sharing is off.</div>
+      </div>
+
+      <div class="panel panel-pad">
+        <div class="section-title">Zones in range ({{ zones.count }})</div>
+        {% for z in zones %}
+          <div class="zone-chip">
+            <span class="swatch" style="background:{{ z.color }}"></span>
+            <span class="name">{{ z.name }}</span>
+            <span class="radius">{{ z.radius_m }} m</span>
+          </div>
+        {% empty %}
+          <div class="empty-note">No zones have been set up yet. Ask your admin to draw one in the control room.</div>
+        {% endfor %}
+      </div>
+
+      <div class="panel panel-pad">
+        <div class="section-title">Your recent check-ins</div>
+        <div id="myFeed">
+          {% for e in my_recent %}
+            <div class="feed-row">
+              <div class="av">{{ e.zone.name|slice:":2"|upper }}</div>
+              <div class="meta">
+                <div class="z">{{ e.zone.name }}</div>
+              </div>
+              <div class="t">{{ e.entered_at|date:"d M, H:i" }}</div>
+            </div>
+          {% empty %}
+            <div class="empty-note" id="myFeedEmpty">No check-ins yet — they'll show up here the moment you cross a zone.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ zones_json|json_script:"zones-data" }}
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  function getCookie(name) {
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+  }
+  var CSRF = getCookie('csrftoken');
+  var COOLDOWN_MIN = {{ cooldown }};
+
+  var zones = JSON.parse(document.getElementById('zones-data') ? document.getElementById('zones-data').textContent : '[]');
+
+  var FALLBACK = [42.4531, 59.6103]; // Nukus, as a sane default view
+  var startCenter = zones.length ? [zones[0].lat, zones[0].lng] : FALLBACK;
+
+  var map = L.map('map', { zoomControl: true }).setView(startCenter, zones.length ? 14 : 11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19
+  }).addTo(map);
+
+  var zoneLayer = L.layerGroup().addTo(map);
+  zones.forEach(function (z) {
+    L.circle([z.lat, z.lng], {
+      radius: z.radius_m, color: z.color, weight: 2, fillColor: z.color, fillOpacity: 0.12
+    }).addTo(zoneLayer).bindPopup('<b>' + z.name + '</b><br>' + z.radius_m + ' m radius');
+  });
+
+  var meIcon = L.divIcon({
+    className: '', html: '<div style="width:16px;height:16px;border-radius:50%;background:#4cf0b0;box-shadow:0 0 0 6px rgba(76,240,176,0.25),0 0 14px #4cf0b0;"></div>',
+    iconSize: [16, 16], iconAnchor: [8, 8]
+  });
+  var meMarker = null;
+  var hasCentered = false;
+
+  var pill = document.getElementById('gpsPill');
+  var orb = document.getElementById('gpsOrb');
+  var toggleBtn = document.getElementById('gpsToggle');
+  var readout = document.getElementById('gpsReadout');
+  var myFeed = document.getElementById('myFeed');
+  var myFeedEmpty = document.getElementById('myFeedEmpty');
+
+  var watchId = null;
+  var lastSent = 0;
+  var SEND_EVERY_MS = 7000;
+
+  function haversine(lat1, lng1, lat2, lng2) {
+    var R = 6371000, toRad = function (d) { return d * Math.PI / 180; };
+    var dphi = toRad(lat2 - lat1), dl = toRad(lng2 - lng1);
+    var a = Math.sin(dphi / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dl / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  function nearestZoneStatus(lat, lng) {
+    var inside = zones.filter(function (z) { return haversine(lat, lng, z.lat, z.lng) <= z.radius_m; });
+    if (inside.length) return inside.map(function (z) { return z.name; }).join(', ');
+    return null;
+  }
+
+  function addFeedRow(zoneName, when) {
+    if (myFeedEmpty) { myFeedEmpty.remove(); myFeedEmpty = null; }
+    var row = document.createElement('div');
+    row.className = 'feed-row fresh';
+    row.innerHTML = '<div class="av">' + zoneName.slice(0, 2).toUpperCase() + '</div>' +
+      '<div class="meta"><div class="z">' + zoneName + '</div></div>' +
+      '<div class="t">' + when + '</div>';
+    myFeed.prepend(row);
+  }
+
+  function onPosition(pos) {
+    var lat = pos.coords.latitude, lng = pos.coords.longitude;
+
+    if (!meMarker) {
+      meMarker = L.marker([lat, lng], { icon: meIcon }).addTo(map);
+    } else {
+      meMarker.setLatLng([lat, lng]);
+    }
+    if (!hasCentered) { map.setView([lat, lng], 15); hasCentered = true; }
+
+    var status = nearestZoneStatus(lat, lng);
+    var now = Date.now();
+    readout.innerHTML = lat.toFixed(5) + ', ' + lng.toFixed(5) + '<br>' +
+      (status ? 'Inside: <span style="color:var(--signal)">' + status + '</span>' : 'Outside any zone');
+
+    if (now - lastSent > SEND_EVERY_MS) {
+      lastSent = now;
+      fetch("{% url 'api_checkin' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'lat=' + lat + '&lng=' + lng
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.ok && data.entered && data.entered.length) {
+          var when = new Date().toLocaleString();
+          data.entered.forEach(function (zn) { addFeedRow(zn, when); });
+        }
+      }).catch(function () {});
+    }
+  }
+
+  function onError(err) {
+    readout.textContent = 'Could not get location (' + err.message + ').';
+    stopWatch();
+  }
+
+  function startWatch() {
+    if (!navigator.geolocation) { readout.textContent = 'Your browser does not support geolocation.'; return; }
+    watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+    });
+    pill.className = 'status-pill live'; pill.innerHTML = '<span class="blip"></span>Location live';
+    orb.classList.add('on');
+    toggleBtn.textContent = 'Stop sharing';
+    toggleBtn.classList.remove('btn-signal'); toggleBtn.classList.add('btn-ghost');
+    readout.textContent = 'Acquiring signal\u2026';
+  }
+
+  function stopWatch() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    pill.className = 'status-pill'; pill.innerHTML = '<span class="blip"></span>Location off';
+    orb.classList.remove('on');
+    toggleBtn.textContent = 'Enable GPS';
+    toggleBtn.classList.add('btn-signal'); toggleBtn.classList.remove('btn-ghost');
+  }
+
+  toggleBtn.addEventListener('click', function () {
+    if (watchId === null) startWatch(); else stopWatch();
+  });
+})();
+</script>
+{% endblock %}

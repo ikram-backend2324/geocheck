@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-shell wrap">
+  <div class="panel auth-card">
+    <span class="eyebrow">Create account</span>
+    <h1>Join the network.</h1>
+    <p class="sub">Username and password only — nothing else needed to get started.</p>
+
+    {% if form.errors %}
+      <div class="alert-box">
+        {% for field in form %}{% for error in field.errors %}{{ error }} {% endfor %}{% endfor %}
+        {% for error in form.non_field_errors %}{{ error }} {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label for="{{ form.username.id_for_label }}">Username</label>
+        {{ form.username }}
+      </div>
+      <div class="field">
+        <label for="{{ form.password1.id_for_label }}">Password</label>
+        {{ form.password1 }}
+      </div>
+      <div class="field">
+        <label for="{{ form.password2.id_for_label }}">Repeat password</label>
+        {{ form.password2 }}
+      </div>
+      <button type="submit" class="btn btn-signal btn-block">Create account</button>
+    </form>
+    <div class="auth-foot">Already have an account? <a href="{% url 'login' %}">Log in</a></div>
+  </div>
+</div>
+{% endblock %}
